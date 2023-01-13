@@ -1,0 +1,20 @@
+{
+  "name": "sapling",
+  "version": "1.0.0",
+  "description": "Tezos Sapling contract and tests",
+  "main": "index.js",
+  "scripts": {
+    "watch:compile": "nodemon --ext mligo --exec \"ligo compile contract ./sapling.mligo\"",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "Tezos",
+    "Sapling",
+    "Taquito"
+  ],
+  "author": "Claude Barde",
+  "license": "ISC",
+  "devDependencies": {
+    "nodemon": "^2.0.20"
+  }
+}
