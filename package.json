@@ -4,7 +4,8 @@
   "description": "Tezos Sapling contract and tests",
   "main": "index.js",
   "scripts": {
-    "watch:compile": "nodemon --ext mligo --exec \"ligo compile contract ./sapling.mligo\"",
+    "watch:compile-sapling-xtz": "nodemon --ext mligo --exec \"ligo compile contract ./sapling-xtz/sapling-xtz.mligo\"",
+    "watch:compile-sapling-fa12": "nodemon --ext mligo --exec \"ligo compile contract ./sapling-fa12/sapling-fa12.mligo\"",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
