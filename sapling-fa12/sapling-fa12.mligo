@@ -22,13 +22,8 @@ let transfer
         match ((Tezos.get_entrypoint_opt "%transfer" contract_address): fa1_2_parameter contract option) with
         | None -> (None: operation option)
         | Some contract -> 
-            let value = 
-                match amount |> is_nat with
-                | None -> 0n
-                | Some amt -> amt
-            in 
             let param = 
-                { from = contract_address; to_ = recipient; value = value }
+                { from = contract_address; to_ = recipient; value = (abs amount) }
             in 
             Some (Tezos.transaction param 0tez contract)
 
