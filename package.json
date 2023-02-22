@@ -6,6 +6,7 @@
   "scripts": {
     "watch:compile-sapling-xtz": "nodemon --ext mligo --exec \"ligo compile contract ./sapling-xtz/sapling-xtz.mligo\"",
     "watch:compile-sapling-fa12": "nodemon --ext mligo --exec \"ligo compile contract ./sapling-fa12/sapling-fa12.mligo\"",
+    "watch:compile-sapling-fa2": "nodemon --ext mligo --exec \"ligo compile contract ./sapling-fa2/sapling-fa2.mligo\"",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
