@@ -16,14 +16,14 @@ type fa1_2_parameter =
 type return = operation list * storage
 
 let transfer 
-    (contract_address: address) 
+    (from: address) 
     (recipient: address) 
     (amount: int): operation option =
-        match ((Tezos.get_entrypoint_opt "%transfer" contract_address): fa1_2_parameter contract option) with
+        match ((Tezos.get_entrypoint_opt "%transfer" from): fa1_2_parameter contract option) with
         | None -> (None: operation option)
         | Some contract -> 
             let param = 
-                { from = contract_address; to_ = recipient; value = (abs amount) }
+                { from = from; to_ = recipient; value = (abs amount) }
             in 
             Some (Tezos.transaction param 0tez contract)
 
@@ -56,27 +56,23 @@ let main (tx_list, s : parameter * storage) : return =
                                         | None -> ops, { storage with state = new_sapling_state }
                                         | Some op -> (op :: ops), { storage with state = new_sapling_state })
                                         
-                                )            
-                            else if tx_balance < 0
-                            then
-                                // If the balance is negative, the contract receives the tokens (shielding)
+                                ) 
+                            else
+                                // no implicit account is expected in the bound data
                                 (
                                     match (Bytes.unpack bound_data: key_hash option) with
-                                    | None -> failwith "UNABLE_TO_UNPACK_RECIPIENT"
-                                    | Some (recipient_key_hash) ->
-                                        let recipient = 
-                                            recipient_key_hash 
-                                            |> Tezos.implicit_account
-                                            |> Tezos.address
-                                        in
-                                        (match transfer storage.fa1_2_contract recipient tx_balance with
-                                        | None -> ops, { storage with state = new_sapling_state }
-                                        | Some op -> (op :: ops), { storage with state = new_sapling_state })
+                                    | Some (_) -> failwith "UNEXPECTED_RECIPIENT"
+                                    | None -> 
+                                        if tx_balance < 0
+                                        then
+                                            // If the balance is negative, the contract receives the tokens (shielding)
+                                            (match transfer (Tezos.get_sender ()) storage.fa1_2_contract tx_balance with
+                                            | None -> ops, { storage with state = new_sapling_state }
+                                            | Some op -> (op :: ops), { storage with state = new_sapling_state })
+                                        else
+                                            // If the balance is zero (Sapling transfer)
+                                            ops, { storage with state = new_sapling_state }
                                 )
-                            else
-                                // If the balance is zero (Sapling transfer)
-                                ops, { storage with state = new_sapling_state }
-
                         )
                 )
                 tx_list
