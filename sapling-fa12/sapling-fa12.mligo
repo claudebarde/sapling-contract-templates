@@ -23,58 +23,60 @@ let main (tx_list, s : parameter * storage) : return =
         match ((Tezos.get_entrypoint_opt "%transfer" s.fa1_2_contract): fa1_2_parameter contract option) with
         | None -> failwith "INVALID_FA1_2_CONTRACT"
         | Some contract -> 
-            List.fold
-                (
-                    fun (((ops, storage), tx) : (operation list * storage) * 8 sapling_transaction) -> 
-                        match Tezos.sapling_verify_update tx storage.state with
-                        | None -> failwith "INVALID_SAPLING_TX"
-                        | Some (bound_data, (tx_balance, new_sapling_state)) -> (
-                            // If the balance is strictly positive (i.e. unshielding), we send
-                            // funds to the given address.
-                            if tx_balance > 0
-                            then
-                                (
-                                    match (Bytes.unpack bound_data: key_hash option) with
-                                    | None -> failwith "UNABLE_TO_UNPACK_RECIPIENT"
-                                    | Some (recipient_key_hash) ->
-                                        let recipient = 
-                                            recipient_key_hash 
-                                            |> Tezos.implicit_account
-                                            |> Tezos.address
-                                        in
-                                        let param = 
-                                        { 
-                                            from = Tezos.get_self_address (); 
-                                            to_ = recipient; 
-                                            value = (abs tx_balance) 
-                                        }
-                                        in 
-                                        ((Tezos.transaction param 0tez contract) :: ops), 
-                                        { storage with state = new_sapling_state }
-                                ) 
-                            else
-                                // no implicit account is expected in the bound data
-                                (
-                                    match (Bytes.unpack bound_data: key_hash option) with
-                                    | Some (_) -> failwith "UNEXPECTED_RECIPIENT"
-                                    | None -> 
-                                        if tx_balance < 0
-                                        then
-                                            // If the balance is negative, the contract receives the tokens (shielding)
+            let (ops, new_state) = 
+                List.fold
+                    (
+                        fun (((ops, new_state), tx) : (operation list * 8 sapling_state) * 8 sapling_transaction) -> 
+                            match Tezos.sapling_verify_update tx new_state with
+                            | None -> failwith "INVALID_SAPLING_TX"
+                            | Some (bound_data, (tx_balance, new_sapling_state)) -> (
+                                // If the balance is strictly positive (i.e. unshielding), we send
+                                // funds to the given address.
+                                if tx_balance > 0
+                                then
+                                    (
+                                        match (Bytes.unpack bound_data: key_hash option) with
+                                        | None -> failwith "UNABLE_TO_UNPACK_RECIPIENT"
+                                        | Some (recipient_key_hash) ->
+                                            let recipient = 
+                                                recipient_key_hash 
+                                                |> Tezos.implicit_account
+                                                |> Tezos.address
+                                            in
                                             let param = 
                                             { 
-                                                from = Tezos.get_sender (); 
-                                                to_ = Tezos.get_self_address (); 
+                                                from = Tezos.get_self_address (); 
+                                                to_ = recipient; 
                                                 value = (abs tx_balance) 
                                             }
                                             in 
                                             ((Tezos.transaction param 0tez contract) :: ops), 
-                                            { storage with state = new_sapling_state }
-                                        else
-                                            // If the balance is zero (Sapling transfer)
-                                            ops, { storage with state = new_sapling_state }
-                                )
-                        )
-                )
-                tx_list
-                (([]: operation list), s)
+                                            new_sapling_state
+                                    ) 
+                                else
+                                    // no implicit account is expected in the bound data
+                                    (
+                                        match (Bytes.unpack bound_data: key_hash option) with
+                                        | Some (_) -> failwith "UNEXPECTED_RECIPIENT"
+                                        | None -> 
+                                            if tx_balance < 0
+                                            then
+                                                // If the balance is negative, the contract receives the tokens (shielding)
+                                                let param = 
+                                                { 
+                                                    from = Tezos.get_sender (); 
+                                                    to_ = Tezos.get_self_address (); 
+                                                    value = (abs tx_balance) 
+                                                }
+                                                in 
+                                                ((Tezos.transaction param 0tez contract) :: ops), 
+                                                new_sapling_state
+                                            else
+                                                // If the balance is zero (Sapling transfer)
+                                                ops, new_sapling_state
+                                    )
+                            )
+                    )
+                    tx_list
+                    (([]: operation list), s.state)
+            in (ops, { s with state = new_state })
