@@ -23,17 +23,17 @@ type fa2_parameter = fa2_transfer list
 
 type return = operation list * storage
 
-type loop_els = ((address * nat) list * (address, nat) map * storage) * 8 sapling_transaction
+type loop_els = ((address * nat) list * nat * storage) * 8 sapling_transaction
 
 let main (tx_list, s : parameter * storage) : return =
     // contract must fail if an amount of tez is transferred
     if (Tezos.get_amount () > 0tez)
     then failwith "UNEXPECTED_XTZ_AMOUNT"
     else
-        let (unshielding_reqs, shielding_reqs, new_state) = 
+        let (unshielding_reqs, shielding_amount, new_storage) = 
             List.fold
                 (
-                    fun (((unshielding_reqs, shielding_reqs, storage), tx) : loop_els) -> 
+                    fun (((unshielding_reqs, shielding_amount, storage), tx) : loop_els) -> 
                         match Tezos.sapling_verify_update tx storage.state with
                         | None -> failwith "INVALID_SAPLING_TX"
                         | Some (bound_data, (tx_balance, new_sapling_state)) -> (
@@ -53,7 +53,7 @@ let main (tx_list, s : parameter * storage) : return =
                                         let data = (recipient, abs(tx_balance)) in
                                         (
                                             data :: unshielding_reqs,
-                                            shielding_reqs,
+                                            shielding_amount,
                                             { storage with state = new_sapling_state }
                                         )                                        
                                 )            
@@ -66,8 +66,7 @@ let main (tx_list, s : parameter * storage) : return =
                                     | None -> 
                                         (
                                             unshielding_reqs,
-                                            // TODO: try with a curried version of the fn
-                                            (Map.update (Tezos.get_sender ()) (Some(abs(tx_balance))) shielding_reqs),
+                                            (shielding_amount + abs(tx_balance)),
                                             { storage with state = new_sapling_state }
                                         )
                                 )
@@ -75,14 +74,14 @@ let main (tx_list, s : parameter * storage) : return =
                                 // If the balance is zero (Sapling transfer)
                                 (
                                     unshielding_reqs,
-                                    shielding_reqs,
+                                    shielding_amount,
                                     { storage with state = new_sapling_state }
                                 )
 
                         )
                 )
                 tx_list
-                (([]: (address * nat) list), (Map.empty: (address, nat) map), s)
+                (([]: (address * nat) list), 0n, s)
         in
         // creates the transfers
         let op: operation = 
@@ -90,23 +89,15 @@ let main (tx_list, s : parameter * storage) : return =
             | None -> failwith "%TRANFER_DOESNT_EXIST"
             | Some contract -> (
                 // transfers to the contract
-                let transfers_to: fa2_parameter = 
-                    Map.fold
-                        (
-                            fun (transfers, req: (fa2_parameter) * (address * nat)) ->
-                                let param =
-                                    {
-                                        from_ = req.0 ;
-                                        txs = [{
-                                            to_ = Tezos.get_self_address () ;
-                                            token_id = s.token_id ;
-                                            amount = req.1
-                                        }]
-                                    }
-                                in (param :: transfers)
-                        )
-                        shielding_reqs
-                        []
+                let transfers_to: fa2_parameter =
+                    [{
+                        from_ = Tezos.get_sender () ;
+                        txs = [{
+                            to_ = Tezos.get_self_address () ;
+                            token_id = s.token_id ;
+                            amount = shielding_amount
+                        }]
+                    }]
                 in
                 // transfers from the contract
                 let transfers_from: fa2_transaction list = 
@@ -120,7 +111,7 @@ let main (tx_list, s : parameter * storage) : return =
                                 }
                         )
                         unshielding_reqs
-                in
+                in 
                 let transfers: fa2_parameter = 
                     { from_ = Tezos.get_self_address () ; txs = transfers_from } :: transfers_to
                 in
@@ -129,4 +120,4 @@ let main (tx_list, s : parameter * storage) : return =
             )
         in
         
-        [op], new_state
+        [op], new_storage
