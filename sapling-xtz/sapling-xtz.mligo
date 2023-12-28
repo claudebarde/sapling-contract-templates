@@ -5,7 +5,8 @@ type parameter = 8 sapling_transaction list
 
 type return = operation list * storage
 
-let main (tx_list, s : parameter * storage) : return =
+[@entry]
+let main (tx_list: parameter)  (s: storage) : return =
     let (ops, new_state, difference) = 
         List.fold
             (

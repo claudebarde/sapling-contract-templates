@@ -6,7 +6,6 @@ type storage = {
 type parameter = 8 sapling_transaction list
 
 type fa1_2_parameter = 
-[@layout:comb]
 {
     from: address;
     [@annot to] to_: address;
@@ -15,7 +14,8 @@ type fa1_2_parameter =
 
 type return = operation list * storage
 
-let main (tx_list, s : parameter * storage) : return =
+[@entry]
+let main (tx_list: parameter) (s: storage) : return =
     // contract must fail if an amount of tez is transferred
     if (Tezos.get_amount () > 0tez)
     then failwith "UNEXPECTED_XTZ_AMOUNT"

@@ -25,7 +25,8 @@ type return = operation list * storage
 
 type loop_els = ((address * nat) list * nat * storage) * 8 sapling_transaction
 
-let main (tx_list, s : parameter * storage) : return =
+[@entry]
+let main (tx_list: parameter) (s: storage) : return =
     // contract must fail if an amount of tez is transferred
     if (Tezos.get_amount () > 0tez)
     then failwith "UNEXPECTED_XTZ_AMOUNT"
